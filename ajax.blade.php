@@ -8,26 +8,49 @@ public function show(Request $request, $id){
 
     }
 
+   public function ajax(Request $request, $id){
+    if($request->ajax()){
+        $startTime = $id; //Getting Starting Date
+        $endTime = $request->end_date;
 
-    public function ajax(Request $request, $id){
-        if($request->ajax()){
-            $today = $id; //Getting Starting Date
+
+        $busy = array(); //Agents Who are really busy
 
 
-            $busy = array(); //Agents Who are really busy
+        $assigned_agent = AssignAgentToProject::where(function ($dateQuery) use ($startTime, $endTime){
 
-            $assigned_agent = AssignAgentToProject::where('service_start','<=',$today)->where('service_ends','>=',$today)->get();
-            foreach ($assigned_agent as $agent){
-                $busy[] = $agent->agent_id;
-            }
+            $dateQuery->where(function ($query) use ($startTime, $endTime) {$query->where(function ($q) use ($startTime, $endTime){
+                $q->where('service_start','>=',$startTime)->where('service_ends','<=',$endTime); })
+                ->orWhere(function ($q) use ($startTime, $endTime){ $q->where('service_start','<',$startTime)->where('service_ends','>',$startTime); });})
 
+                ->orwhere(function ($query) use ($startTime, $endTime) {$query->where(function ($q) use ($startTime, $endTime){ $q->where('service_start','>',$startTime)->where('service_ends','<',$endTime); })
+                    ->orWhere(function ($q) use ($startTime, $endTime){ $q->where('service_start','<',$endTime)->where('service_ends','>',$endTime); });});
+        })->get();
+
+
+
+
+        foreach ($assigned_agent as $key => $agent){
+            $busy[] = explode(",",$agent->agent_id);
+        }
+
+        if(count($assigned_agent) >0){
+
+            $agents = Employee::where('role_id',6)->where('status','active')->whereNotIN('id',$busy[0])->get();
+        }
+        else{
 
             //Getting Free Agents
             $agents = Employee::where('role_id',6)->where('status','active')->whereNotIN('id',$busy)->get();
 
-            return view('admin.roaster.assign.ajax.agents',compact('agents'))->render();
         }
+
+
+
+
+        return view('admin.roaster.assign.ajax.agents',compact('agents'))->render();
     }
+}
 
 ?>
 
